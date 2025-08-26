@@ -19,6 +19,9 @@ class SpatialTransforms:
         self.image = image
         self.width = image.shape[1]
         self.height = image.shape[0]
+        self.mean = np.mean(image)
+        self.std = np.std(image)
+        self.var = np.var(image)
     def scalling(self, scale_x=1.0, scale_y=1.0):
         """Scale the image by the given factors along x and y axes.
         Scaling is a spatial transformation that changes the size of an image.

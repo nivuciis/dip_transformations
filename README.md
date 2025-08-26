@@ -36,4 +36,4 @@ coordinate points is the Affine transform:**
 
 **Scalling**
 
-$\begin{bmatrix}Cx & 0 & 0 \\0 & Cy & 0\\0&0&1 \end{bmatrix}$
+$\begin{bmatrix}Cx&0&0\\\0&Cy&0\\\0&0&1 \end{bmatrix}$
