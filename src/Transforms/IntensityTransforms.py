@@ -93,9 +93,9 @@ class IntensityTransforms:
         Histogram equalization is a technique used to improve the contrast of an image by redistributing the intensity values.
         It enhances the global contrast of the image, making it easier to distinguish between different intensity levels.
         """
-        histogram = self.getHistogram()
+        histogram, bins_source = np.histogram(self.image.flatten(), bins=256, range=[0,256])
         cdf = np.cumsum(histogram)
-        cdf_normalized = (cdf - cdf.min()) * 255 / (self.width * self.height - cdf.min())
+        cdf_normalized = cdf / cdf.max() * 255 # Normalize to 0-255
         equalized_image = np.interp(self.image.flatten(), range(256), cdf_normalized)
         return equalized_image.reshape(self.image.shape).astype(self.image.dtype)
     def laplacian_filter(self):
@@ -127,8 +127,10 @@ class IntensityTransforms:
                 elif r1 <= pixel_value < r2:
                     output_image[i, j] = ((s2 - s1) / (r2 - r1)) * (pixel_value - r1) + s1
                 else:
-                    output_image[i, j] = ((255 - s2) / (255 - r2)) * (pixel_value - r2) + s2
+                    output_image[i, j] = ((255 - s2) / (255 - r2)) * (pixel_value - r2) + s2 if r2<255 else pixel_value
         return output_image
+    
+#Test the class
 if __name__ == "__main__":
     # Load an image
     image = cv.imread('moon.jpg', cv.IMREAD_GRAYSCALE)
@@ -136,13 +138,13 @@ if __name__ == "__main__":
     intensity_transformer = IntensityTransforms(image)
     # Apply piecewise linear transformation
     piecewise_image = intensity_transformer.piecewise_linear(r1=70, s1=0, r2=140, s2=255)
-    #histogram equalization
-    hist_eq_image = intensity_transformer.histogram_equalization()
+    #histogram gamma correction
+    hist_eq_image = intensity_transformer.piecewise_linear(r1=0, s1=0, r2=150, s2=200)
+    #hist_eq_image = intensity_transformer.gamma_correction(gamma=1.8, c=1)
     # Display the original and piecewise linear transformed images
     cv.imshow('Original Image', image)
-    cv.imshow('Piecewise Linear Transformed Image', piecewise_image)
     cv.imshow('histogram equalized Image', hist_eq_image)
     cv.waitKey(0)
     cv.destroyAllWindows()
     #plot histogram
-    intensity_transformer.plotHistogram(second_image=piecewise_image)
+    intensity_transformer.plotHistogram(second_image=hist_eq_image)
