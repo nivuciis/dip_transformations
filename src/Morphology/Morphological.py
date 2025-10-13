@@ -84,15 +84,131 @@ class Morphological:
         return hit_or_miss
     
     def BoundaryExtraction(self, kernel_size=(3,3)):
-        """Boundary extraction on the image. β(A) = A - (A ⊖ B)"""
+        """Boundary extraction on the image. β(A) = A - (A ⊖ B)
+        args: kernel_size: size of the structuring element B
+        returns: boundary image """
         kernel = np.ones(kernel_size, dtype=np.uint8)
         eroded = cv.erode(self.image, kernel, iterations=1)
         boundary = cv.subtract(self.image, eroded)
         return boundary
     
+    def HoleFilling(self, seed_point, kernel_size=(3,3)):
+        """Hole filling on the image. Xk = (Xk-1 ⊕ B) ∩ Ac, X0 = p, p is a pixel in the hole, Ac is the complement of A
+        args: seed point (x,y), kernel_size: size of the structuring element B
+        returns: filled image """
+        kernel = np.ones(kernel_size, dtype=np.uint8)
+        #Complement of the image
+        complement_image = cv.bitwise_not(self.image)
+
+        #Create an empty image with the same size as the original
+        filled_image = np.zeros_like(self.image)
+        #Set the seed point to background (255)
+        filled_image[seed_point[1], seed_point[0]] = 255
+
+        while True:
+            #Dilate the filled image
+            dilated = cv.dilate(filled_image, kernel, iterations=1)
+            #Intersect with the complement of the original image
+            new_filled = cv.bitwise_and(dilated, complement_image)
+            #If no change, break
+            if np.array_equal(new_filled, filled_image):
+                break
+            filled_image = new_filled
+
+        #Combine the filled image with the original image
+        result = cv.bitwise_or(self.image, filled_image)
+
+        return result
+
+    def ConvexHull(self):
+        """Convex hull on the image. 
+        args: None
+        returns: convex hull image """
+        #Find contours
+        contours, _ = cv.findContours(self.image, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE)
+        #Create an empty image with the same size as the original
+        convex_hull_image = np.zeros_like(self.image)
+        #Draw convex hull for each contour
+        for contour in contours:
+            hull = cv.convexHull(contour)
+            cv.drawContours(convex_hull_image, [hull], 0, 255, -1) #Filled convex hull
+        return convex_hull_image
+    
+    def Thining(self):
+        """Thinning on the image. 
+        args: None
+        returns: thinned image """
+        #Using Zhang-Suen Thinning Algorithm
+        thinned_image = cv.ximgproc.thinning(self.image)
+        return thinned_image
+    
+    def Thickening(self):
+        """Thickening on the image. 
+        args: None
+        returns: thickened image """
+        #Using Zhang-Suen Thinning Algorithm and inverting the result
+        inverted_image = cv.bitwise_not(self.image)
+        thickened_image = cv.ximgproc.thinning(inverted_image)
+        thickened_image = cv.bitwise_not(thickened_image)
+        return thickened_image
+    
+    def Skeletonization(self):
+        """Skeletonization on the image. 
+        args: None
+        returns: skeletonized image """
+        #Using Zhang-Suen Thinning Algorithm
+        skeletonized_image = cv.ximgproc.thinning(self.image)
+        return skeletonized_image
+    
+    def Pruning(self, iterations=1):
+        """Pruning on the image. 
+        args: iterations: number of iterations to prune
+        returns: pruned image """
+        pruned_image = self.image.copy()
+        for _ in range(iterations):
+            # Create a copy of the image to store changes
+            temp_image = pruned_image.copy()
+            # Define the structuring element for pruning
+            kernel = np.array([[0, 1, 0],
+                               [1, 1, 1],
+                               [0, 0, 0]], dtype=np.uint8)
+            # Erode the image
+            eroded = cv.erode(pruned_image, kernel, iterations=1)
+            # Subtract the eroded image from the original to get endpoints
+            endpoints = cv.subtract(pruned_image, eroded)
+            # Remove endpoints from the original image
+            temp_image = cv.subtract(temp_image, endpoints)
+            pruned_image = temp_image
+        return pruned_image
+    
+    def ReconstructionByDilation(self, marker, kernel_size=(3,3)):
+        """Reconstruction by dilation on the image. 
+        args: marker: binary image to be used as marker, kernel_size: size of the structuring element B
+        returns: reconstructed image """
+        kernel = np.ones(kernel_size, dtype=np.uint8)
+        #Complement of the original image
+        complement_image = cv.bitwise_not(self.image)
+
+        reconstructed_image = marker.copy()
+
+        while True:
+            #Dilate the reconstructed image
+            dilated = cv.dilate(reconstructed_image, kernel, iterations=1)
+            #Intersect with the complement of the original image
+            new_reconstructed = cv.bitwise_and(dilated, complement_image)
+            #If no change, break
+            if np.array_equal(new_reconstructed, reconstructed_image):
+                break
+            reconstructed_image = new_reconstructed
+
+        return reconstructed_image
+    
 # Test
 if __name__ == "__main__":
     original_image = cv.imread('./assets/horse2.png')
+    test_image = np.zeros((200, 200), dtype=np.uint8)
+    cv.rectangle(test_image, (30, 30), (170, 170), 255, -1) # External Square
+    cv.rectangle(test_image, (70, 70), (130, 130), 0, -1)   # Internal Hole
 
     if original_image is None:
         print("Erro: Img not found.")
@@ -101,21 +217,31 @@ if __name__ == "__main__":
         _, binary_image = cv.threshold(gray_image, 128, 255, cv.THRESH_BINARY)
 
         morph = Morphological(binary_image)
-    
+
         #eroded_image = morph.erode(kernel_size=(6,6))
         #dilated_image = morph.dilate(kernel_size=(6,6))
         #opened_image = morph.open(kernel_size=(6,6))
         #closing_image = morph.closing(kernel_size=(6,6))
         #Define hit and miss kernels
-        hit_kernel = np.array([[1, 0, 0],
-                               [1, 0, 0],
-                               [1, 0, 0]], dtype=np.uint8) 
-        miss_kernel = np.array([[0, 0, 1],
-                                [0, 0, 1],
-                                [0, 0, 1]], dtype=np.uint8)   
-        hit_or_miss_image = morph.HitOrMiss(hit_kernel, miss_kernel)
+        #hit_kernel = np.array([[1, 0, 0],
+        #                       [1, 0, 0],
+        #                       [1, 0, 0]], dtype=np.uint8) 
+        #miss_kernel = np.array([[0, 0, 1],
+        #                        [0, 0, 1],
+        #                        [0, 0, 1]], dtype=np.uint8)   
+        #hit_or_miss_image = morph.HitOrMiss(hit_kernel, miss_kernel)
         #boundary_image = morph.BoundaryExtraction(kernel_size=(3,3))
+        #test_hole = Morphological(test_image)
+        #filled_image = test_hole.HoleFilling(seed_point=(100,100), kernel_size=(3,3))
+        #convex_hull_image = morph.ConvexHull()
+        convex_hull_image = morph.Pruning(iterations=3)
+        thinned_image = morph.Thining()
+        thickened_image = morph.Thickening()
+        skeletonized_image = morph.Skeletonization()
+        reconstructed_image = morph.ReconstructionByDilation(marker=thinned_image, kernel_size=(3,3))
 
+
+        #Display images
         cv.imshow('Binary img', binary_image)
         #cv.imshow('Erode image', eroded_image)
         #cv.imshow('Dilate image', dilated_image)
@@ -123,6 +249,14 @@ if __name__ == "__main__":
         #cv.imshow('Closing', closing_image)
         #cv.imshow('Hit or Miss', hit_or_miss_image)
         #cv.imshow('Boundary Extraction', boundary_image)
+        #cv.imshow('Test Image', test_image)
+        #cv.imshow('Filled Image', filled_image)
+        #cv.imshow('Convex Hull', convex_hull_image)
+        #cv.imshow('Pruned Image', convex_hull_image)
+        #cv.imshow('Thinned Image', thinned_image)
+        #cv.imshow('Thickened Image', thickened_image)
+        #cv.imshow('Skeletonized Image', skeletonized_image)
+        #cv.imshow('Reconstructed Image', reconstructed_image)
 
         #Save images
         #cv.imwrite('./assets/outputs/erode.png', eroded_image)
@@ -131,6 +265,14 @@ if __name__ == "__main__":
         #cv.imwrite('./assets/outputs/closing.png', closing_image)
         #cv.imwrite('./assets/outputs/hit_or_miss.png', hit_or_miss_image)
         #cv.imwrite('./assets/outputs/boundary_extraction.png', boundary_image)
-
+        #cv.imwrite('./assets/outputs/test_holefilling_image.png', test_image)
+        #cv.imwrite('./assets/outputs/hole_filling.png', filled_image)
+        #cv.imwrite('./assets/outputs/convex_hull.png', convex_hull_image)
+        #cv.imwrite('./assets/outputs/pruning.png', convex_hull_image)
+        #cv.imwrite('./assets/outputs/thining.png', thinned_image)
+        #cv.imwrite('./assets/outputs/thickening.png', thickened_image)
+        #cv.imwrite('./assets/outputs/skeletonization.png', skeletonized_image)
+        #cv.imwrite('./assets/outputs/reconstruction_by_dilation.png', reconstructed_image)
+        
         cv.waitKey(0)
         cv.destroyAllWindows()
