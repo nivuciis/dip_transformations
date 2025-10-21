@@ -8,15 +8,25 @@ segmentation as a process that partitions R into n subregions, the segmentation 
 *about the similarity* we have the region-base segmentation as it follows; $R_{1}, R_{2},..., R_{n}$ such
 that: 
 
-(a) $$ \bigcup_{i=1}^{n} R_i = R. $$
+(a) 
 
-(b)  $$ R_i, \text{is a connected set, for}\space  i = 0, 1, 2, \ldots, n $$
+$$ \bigcup_{i=1}^{n} R_i = R. $$
 
-(c)  $$ R_i \cap R_j = \varnothing \quad \text{For all } i \text{and } j, \, i \ne j. $$
+(b)  
 
-(d) $$ Q(R_i) = \text{TRUE} \quad \text{for } i = 0, 1, 2, \ldots, n $$
+$$ R_i, \text{is a connected set, for}\space  i = 0, 1, 2, \ldots, n $$
 
-(e)  $$ Q(R_i \cup R_j) = \text{FALSE} \quad \text{For any adjacent regions } R_i \text{ and } R_j. $$
+(c)  
+
+$$ R_i \cap R_j = \varnothing \quad \text{For all } i \text{and } j, \, i \ne j. $$
+
+(d) 
+
+$$ Q(R_i) = \text{TRUE} \quad \text{for } i = 0, 1, 2, \ldots, n $$
+
+(e)  
+
+$$ Q(R_i \cup R_j) = \text{FALSE} \quad \text{For any adjacent regions } R_i \text{ and } R_j. $$
 
 * If the set formed by the union of two
 regions is not connected, the regions are said to **disjoint**.
@@ -119,7 +129,14 @@ These masks can be implemented as follows:
 
 | (a) | (b) | (c) | (d) |
 |:---:|:---:|:---:|:---:|
-| $\begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}$ | $\begin{bmatrix} 1 & 1 & 1 \\ 1 & -8 & 1 \\ 1 & 1 & 1 \end{bmatrix}$ | $\begin{bmatrix} 0 & -1 & 0 \\ -1 & 4 & -1 \\ 0 & -1 & 0 \end{bmatrix}$ | $\begin{bmatrix} -1 & -1 & -1 \\ -1 & 8 & -1 \\ -1 & -1 & -1 \end{bmatrix}$ |
+
+$ \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}$
+
+$\begin{bmatrix} 1 & 1 & 1 \\ 1 & -8 & 1 \\ 1 & 1 & 1 \end{bmatrix}$ 
+
+$\begin{bmatrix} 0 & -1 & 0 \\ -1 & 4 & -1 \\ 0 & -1 & 0 \end{bmatrix}$
+
+$\begin{bmatrix} -1 & -1 & -1 \\ -1 & 8 & -1 \\ -1 & -1 & -1 \end{bmatrix}$
 
 **Descriptions:**
 - (a) Filter mask used to implement.  
@@ -133,7 +150,13 @@ with positive angles measured counterclockwise with respect to the (vertical) *x
 
 | Horizontal | +45° | Vertical | −45° |
 |:-----------:|:----:|:--------:|:----:|
-| $\begin{bmatrix}-1 & -1 & -1 \\ 2 & 2 & 2 \\ -1 & -1 & -1\end{bmatrix}$ | $\begin{bmatrix} 2 & -1 & -1 \\ -1 & 2 & -1 \\ -1 & -1 & 2 \end{bmatrix}$ | $\begin{bmatrix} -1 & 2 & -1 \\ -1 & 2 & -1 \\ -1 & 2 & -1 \end{bmatrix}$ | $\begin{bmatrix} -1 & -1 & 2 \\ -1 & 2 & -1 \\ 2 & -1 & -1 \end{bmatrix}$ |
+$\begin{bmatrix}-1 & -1 & -1 \\ 2 & 2 & 2 \\ -1 & -1 & -1\end{bmatrix}$ 
+
+$\begin{bmatrix} 2 & -1 & -1 \\ -1 & 2 & -1 \\ -1 & -1 & 2 \end{bmatrix}$ 
+
+$\begin{bmatrix} -1 & 2 & -1 \\ -1 & 2 & -1 \\ -1 & 2 & -1 \end{bmatrix}$ 
+
+$\begin{bmatrix} -1 & -1 & 2 \\ -1 & 2 & -1 \\ 2 & -1 & -1 \end{bmatrix}$ 
 
 
 ```python
