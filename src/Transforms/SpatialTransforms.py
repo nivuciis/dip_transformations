@@ -146,7 +146,7 @@ if __name__ == "__main__":
     image = cv.imread('SanFrancisco.jpg', cv.IMREAD_GRAYSCALE)
 
     if image is None:
-        print("Erro: Imagem 'SanFrancisco.jpg' não encontrada. Verifique o caminho.")
+        print("Erro: Imagem 'SanFrancisco.jpg' not found")
     else:
         spatial_transformer = SpatialTransforms(image)
 
