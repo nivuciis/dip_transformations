@@ -25,7 +25,7 @@ class Segmentation:
 
 
 if __name__ == "__main__":
-    original_image = cv.imread('./assets/coins23.png', cv.IMREAD_GRAYSCALE)
+    original_image = cv.imread('./assets/point.jpg', cv.IMREAD_GRAYSCALE)
   
     if original_image is None:
         print("Erro: Img not found.")
@@ -39,9 +39,9 @@ if __name__ == "__main__":
                                          [-1, 2, -1],
                                          [-1, 2, -1]])
 
-        PointDetection_kernel = np.array([[-1, -1, -1],
-                                         [-1, 8, -1],
-                                            [-1, -1, -1]])
+        PointDetection_kernel = np.array([[0, 1, 0],
+                                         [1, -4, 1],
+                                            [0, 1, 0]])
         
         Hline_image = seg.laplacian(Hline_detection_kernel)
         Vline_image = seg.laplacian(Vline_detection_kernel)
@@ -55,6 +55,6 @@ if __name__ == "__main__":
         #Save images
 
         #cv.imwrite('./assets/outputs/',)
-       
+        
         cv.waitKey(0)
         cv.destroyAllWindows()

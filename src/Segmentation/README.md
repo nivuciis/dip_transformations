@@ -127,17 +127,32 @@ Considering the original image:
 
 These masks can be implemented as follows:
 
-| (a) | (b) | (c) | (d) |
-|:---:|:---:|:---:|:---:|
+```python
+A = [
+    [ 0,  1,  0],
+    [ 1, -4,  1],
+    [ 0,  1,  0]
+]
 
-$ \begin{bmatrix} 0 & 1 & 0 \\ 1 & -4 & 1 \\ 0 & 1 & 0 \end{bmatrix}$
+B = [
+    [ 1,  1,  1],
+    [ 1, -8,  1],
+    [ 1,  1,  1]
+]
 
-$\begin{bmatrix} 1 & 1 & 1 \\ 1 & -8 & 1 \\ 1 & 1 & 1 \end{bmatrix}$ 
+C = [
+    [ 0, -1,  0],
+    [-1,  4, -1],
+    [ 0, -1,  0]
+]
 
-$\begin{bmatrix} 0 & -1 & 0 \\ -1 & 4 & -1 \\ 0 & -1 & 0 \end{bmatrix}$
+D = [
+    [-1, -1, -1],
+    [-1,  8, -1],
+    [-1, -1, -1]
+]
 
-$\begin{bmatrix} -1 & -1 & -1 \\ -1 & 8 & -1 \\ -1 & -1 & -1 \end{bmatrix}$
-
+```
 **Descriptions:**
 - (a) Filter mask used to implement.  
 - (b) Mask used to implement an extension of this equation that includes the diagonal terms.  
@@ -148,17 +163,31 @@ $\begin{bmatrix} -1 & -1 & -1 \\ -1 & 8 & -1 \\ -1 & -1 & -1 \end{bmatrix}$
 Detection angles are with respect to the axis system,  
 with positive angles measured counterclockwise with respect to the (vertical) *x*-axis.
 
-| Horizontal | +45° | Vertical | −45° |
-|:-----------:|:----:|:--------:|:----:|
-$\begin{bmatrix}-1 & -1 & -1 \\ 2 & 2 & 2 \\ -1 & -1 & -1\end{bmatrix}$ 
+```python
+horizontal = [
+    [-1, -1, -1],
+    [ 2,  2,  2],
+    [-1, -1, -1]
+]
 
-$\begin{bmatrix} 2 & -1 & -1 \\ -1 & 2 & -1 \\ -1 & -1 & 2 \end{bmatrix}$ 
+45_positive = [
+    [ 2, -1, -1],
+    [-1,  2, -1],
+    [-1, -1,  2]
+]
 
-$\begin{bmatrix} -1 & 2 & -1 \\ -1 & 2 & -1 \\ -1 & 2 & -1 \end{bmatrix}$ 
+vertical = [
+    [-1,  2, -1],
+    [-1,  2, -1],
+    [-1,  2, -1]
+]
 
-$\begin{bmatrix} -1 & -1 & 2 \\ -1 & 2 & -1 \\ 2 & -1 & -1 \end{bmatrix}$ 
-
-
+45_negative = [
+    [-1, -1,  2],
+    [-1,  2, -1],
+    [ 2, -1, -1]
+]
+```
 ```python
 #Laplacian kernel
         Hline_detection_kernel = np.array([[-1, -1, -1],
@@ -177,6 +206,39 @@ Example 1 - Horizontal line kernel extraction :
 Example 2 - Vertical line kernel extraction :
 
 ![Vertical kernel](./assets/outputs/Vline_image.png)
+
+### Image gradient
+
+The tool of choice for finding edge strength *and* direction at an arbitrary location $(x, y)$ of an image, $f$, is the *gradient*, denoted by $\nabla f$ and defined as the vector
+
+$$
+\nabla f(x, y) = \text{grad}[f(x, y)] = \begin{bmatrix} g_x(x, y) \\ g_y(x, y) \end{bmatrix} = \begin{bmatrix} \frac{\partial f(x, y)}{\partial x} \\ \frac{\partial f(x, y)}{\partial y} \end{bmatrix} $$
+
+ When evaluated for all applicable values of $x$ and $y$, $\nabla f(x, y)$ becomes a *vector image*, each element of which is a vector. The *magnitude*, $M(x, y)$, of this gradient vector at a point $(x, y)$ is given by its Euclidean vector norm:
+$$
+M(x, y) = \|\nabla f(x, y)\| = \sqrt{g_x^2(x, y) + g_y^2(x, y)} 
+$$
+
+* IMPORTANT NOTE : A standard grayscale image can only display one value (a scalar) for each pixels intensity, from black to white. We can't directly plot the 2D vector $[g_x, g_y]$ or the complex number $R + jI$(Fourier for example) as a single, intuitive intensity value. **Therefore, the most common and visually informative way to "see" the result is to plot its magnitude**. **When we plot the gradient magnitude ($M$), we are visualizing the edge strength. Bright areas in this "gradient image" correspond to strong edges in the original image.**
+
+
+The *direction* of the gradient vector at a point $(x, y)$ is given by
+
+$$
+\alpha(x, y) = \tan^{-1}\left[\frac{g_y(x, y)}{g_x(x, y)}\right] 
+$$
+
+Angles are measured in the counterclockwise direction with respect to the $x$-axis. This is also an image of the same size as $f$, created by the elementwise division of $g_y$ and $g_x$ over all applicable values of $x$ and $y$. 
+
+## Steps for edge detection
+
+Since the derivatives are sensitive to noise and there are noisy images that we cannot detect easily there are three steps to perfom **edge detection**:
+
+1. **Image smoothing** for noise reduction(Low-pass filters such as median blur are useful here).
+2. **Detection of edge points.** This is a local operation that extracts from an image all points that are potential edge-point candidates(Gradient $\nabla$).
+3. **Edge localization.** The objective of this step is to select from the candidate points only the points that are members of the set of points comprising an edge.
+
+
 
 
 
