@@ -1,83 +1,86 @@
-# dip_transformations
-This repo contains some useful image transformations to understand spatial filtering and transforms with OpenCV
+# Digital Image Processing 
 
+This repository contains a collection of Python scripts for a digital image processing (DIP) class. The focus is on demonstrating common image transformations, spatial filtering, segmentation, mathematical morphology, and frequency-domain transforms using the OpenCV library.
 
-# Notes on digital image processing 
-## Basic relationships between pixels
+---
 
-**The set of 4-neighbors of pixel p is defined as**
+## Purpose
 
-```math
-n4(p) = (x + 1, y),(x − 1, y),(x, y + 1),(x, y − 1)
-```
-    
-**The set of 4-diagonal neighbors of pixel p is defined as**
-```math
-nd4(p) = (x + 1, y + 1),(x − 1, y − 1),(x + 1, y − 1),(x − 1, y + 1)
-```
-Neighbor coordinates may fall outside the image range so we can set it as 0 in, for example, median blur filtering.
-    
-## Math tools
-**---> Array operation is made pixel-by-pixel.**
+The primary goal of this repository is to serve as a practical resource for students learning the fundamentals of digital image processing. The code is intended to be simple, well-commented, and easy to understand, providing clear examples of key DIP concepts.
 
-**---> Matrix operations are carried out using matrix theory.**
+---
 
-**---> Henceforth assume array operation unless stated otherwise**
+## Key Concepts Covered
 
-**---> The arithmetic operations (+, −, ×, ÷) are performed
-pixelwise in array operations, between images of the same size.** 
+The scripts in this repository explore several fundamental areas of image processing:
 
-**---> The image resulting from arithmetic operations should(often) be scaled to [0, 255]!**
+### 1. Spatial Filtering
+Operations that directly manipulate the pixel values of an image.
+* **Smoothing Filters:** (e.g., Gaussian Blur, Median Blur) used for noise reduction.
+* **Sharpening Filters:** (e.g., Laplacian, Sobel) used for edge detection and enhancing details.
+* **Image Gradients:** Finding the directional change in the intensity or color of an image.
 
-## Affine transformations for Spatial transforms
-**A general form that can scale, translate, rotate or sheer a set of
-coordinate points is the Affine transforms:**
+### 2. Mathematical Morphology
+Operations that probe an image with a small shape or template called a "structuring element."
+* **Erosion:** Shrinks the boundaries of foreground objects.
+* **Dilation:** Expands the boundaries of foreground objects.
+* **Opening:** An erosion followed by a dilation, useful for removing small "salt" noise.
+* **Closing:** A dilation followed by an erosion, useful for filling small holes or "pepper" noise.
 
-First, we need to compute the transformation matrix, where the inputs are geometric parameters such as angles, scale factors, and the image (from which the dimensions are extracted), and the output is a 3×3 transformation matrix in homogeneous coordinates.
+### 3. Image Segmentation
+The process of partitioning a digital image into multiple segments (sets of pixels, also known as super-pixels).
+* **Thresholding:** (e.g., Simple, Adaptive, Otsu's) for separating objects from the background based on pixel intensity.
+* **Edge-Based Segmentation:** Using detected edges (like from Canny or Sobel) to find object boundaries.
+* **Watershed Algorithm:** A region-based segmentation approach.
 
-After obtained the transformation matrix we need to compute the inverse maping matrix ( instead of taking every pixel of the image and put it on a floating position in the result image we do the opposite)
+### 4. Frequency Domain Transforms
+Operations that first transform an image into its frequency representation.
+* **Fourier Transform (FFT):** Used to analyze the frequency components of an image.
+* **Frequency Domain Filtering:** Implementing low-pass and high-pass filters to smooth or sharpen images.
 
-**Scalling**
+---
 
-Changes the size of the image by a factor of sx along the x-axis and sy along the y-axis.
+## Technologies Used
 
-```python
-    S = [[s_x, 0, 0],
-          [0, s_y, 0],
-          [0, 0, 1]]
-```
+* **Python 3.x**
+* **OpenCV:** The primary library used for all image processing tasks.
+* **NumPy:** For numerical operations and array manipulation.
+* **Matplotlib:** For displaying images and plots.
 
-**Translating**
+---
 
-Moves the image by tx pixels along the x-axis and ty pixels along the y-axis.
-```python
-    T = [[1, 0, t_x],
-          [0, 1, t_y],
-          [0, 0, 1]]
-```
+## Usage
 
-**Rotation**
+It is highly recommended to use the **Anaconda** distribution to manage your Python environment and dependencies.
 
-Rotates the image by an angle θ around the origin (0, 0). To rotate around a different point, you first translate the image to bring the point to the origin, rotate, and then translate it back.
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/nivuciis/dip_transformations
+    cd dip_transformations
+    ```
 
-```python
-    R = [[cos, -sin, 0],
-          [sin, cos, 0],
-          [0, 0, 1]]
-```
-**Sheer**
+2.  **Create and activate a new Conda environment:**
+    (You can name the environment anything you like, e.g., `dip_env`)
+    ```bash
+    conda create -n dip_env python=3.9
+    conda activate dip_env
+    ```
 
-Slants the image. A horizontal shear shifts pixels in a row based on their y-coordinate, while a vertical shear shifts pixels in a column based on their x-coordinate. The factors sh_x and sh_y control the amount of shear.
+3.  **Install the required libraries:**
+    The simplest way is to use `pip` within your active conda environment:
+    ```bash
+    pip install opencv-python numpy matplotlib
+    ```
+    Alternatively, you can install them using the `conda-forge` channel:
+    ```bash
+    conda install -c conda-forge opencv numpy matplotlib
+    ```
 
-Horizontal
-```python
-    Hs = [[1, sh_x, 0],
-          [0, 1, 0],
-          [0, 0, 1]]
-```
-Vertical
-```python
-    Vs = [[1, 0, 0],
-          [sh_y, 1, 0],
-          [0, 0, 1]]
-```
+4.  **Run a script:**
+
+    ```bash
+    python Segmentation.py
+    ```
+
+---
+
