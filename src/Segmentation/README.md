@@ -2,6 +2,7 @@
 Let R represent the entire spatial region occupied by an image. We may view image
 segmentation as a process that partitions R into n subregions, the segmentation process can be based on **discontinuity or similarity**.
 
+* **The content and concepts presented in this document are based on or directly adapted from the textbook Digital Image Processing by Rafael C. Gonzalez and Richard E. Woods**
 ---
 ### Similarity or Region-based segmentation
 
@@ -419,6 +420,242 @@ marr_hildreth_image = seg.marr_hildreth(
 
 ---
 # Canny Edge detector 
+**Canny algorithm is more complex than the others but more eficient in detecting edges.**
+Canny`s main goals:
+1. *Low error rate*. All edges should be found, and there should be no spurious responses. 
+2. *Edge points should be well localized*. The edges located must be as close as possible to the true edges. That is, the distance between a point marked as an edge by the detector and the center of the true edge should be minimum. 
+3. *Single edge point response.* The detector should return only one point for each true edge point. That is, the number of local maxima around the true edge should be minimum. This means that the detector should not identify multiple edge pixels where only a single edge point exists.
+
+It's a multi-stage algorithm that excels because it's designed to be **robust to noise while providing clean, thin, and continuous lines**. It achieves this by focusing on three key objectives: finding real edges (low error rate), locating them precisely, and marking them with a single-pixel response.
+
+## 1- Noise reduction 
+The first step is to **convolve the input image with a Gaussian filter**. This slightly blurs the image, smoothing out minor noise fluctuations before the gradient is calculated. The amount of blur (controlled by the filter's $\sigma$, or sigma) is the primary parameter you tune: **a larger $\sigma$ reduces more noise but can make it harder to detect faint edges**.
+
+Canny`s led to the conclusion that **a good approximation to the optimal step edge detector is the first derivative of a Gaussian:** $$\frac{d}{dx} e^{-\frac{x^2}{2\sigma^2}} = \frac{-x}{\sigma^2} e^{-\frac{x^2}{2\sigma^2}}$$ 
+
+Let $f(x, y)$ denote the input image and $G(x, y)$ denote the Gaussian function:
+
+$$
+G(x, y) = e^{-\frac{x^2+y^2}{2\sigma^2}}
+$$
+
+We form a smoothed image, $f_s(x, y)$, by convolving $f$ and $G$:
+
+$$
+f_s(x, y) = G(x, y) \star f(x, y)
+$$
+* If using openCV we can just apply: 
+```python
+blurred_img = cv2.GaussianBlur(img, (5, 5), 0)
+```
+
+## 2 - Finding Gradient Intensity and Direction
+The algorithm **calculates the gradient of the smoothed image and computes it`s magnitude and direction**. This is typically done using 3x3 Sobel operators to get the horizontal ($g_x$) and vertical ($g_y$) derivatives.
+$$ M_s(x, y) = \|\nabla f_s(x, y)\| = \sqrt{g_s^2(x, y) + g_s^2(x, y)}$$
+
+and
+
+$$\alpha(x, y) = \tan^{-1}\left[\frac{g_y(x, y)}{g_x(x, y)}\right]$$
+
+with $g_s(x, y)$ and $g_y(x, y)$. Any of the derivative filter kernel pairs  can be used to obtain $g_s(x, y)$ and $g_y(x, y)$. The convolution of image with a gaussian filter is implemented using an $n \times n$ Gaussian kernel with size = k_size. Keep in mind that $\|\nabla f_s(x, y)\|$ and $\alpha(x, y)$ are arrays of the same size as the image from which they are computed.
+
+This can be done by: 
+``` python
+sobel_gx = np.array([[-1, 0, 1], 
+                     [-2, 0, 2], 
+                     [-1, 0, 1]], dtype=np.float64)
+
+sobel_gy = np.array([[-1, -2, -1], 
+                     [ 0,  0,  0], 
+                     [ 1,  2,  1]], dtype=np.float64)
+
+#Convolve the smoothed image with sobel kernels
+gs_image_x = self.convolve(fs_smoothed_image, sobel_gx)
+
+gs_image_y = self.convolve(fs_smoothed_image, sobel_gy)
+
+#Get the magnitude and angle
+magnitude = np.sqrt(np.square(gs_image_x) + np.square(gs_image_y))
+
+angle = np.arctan2(gs_image_y, gs_image_x)
+```
+
+## 3 - Non-Maxima Suppression (NMS)
+As long as the ramp is sloping, the gradient will have a high value. **This means all the pixels along that sloping ramp will have a high magnitude, creating a "thick" or "wide ridge" of high-intensity pixels in the gradient magnitude image**. 
+
+Gradient image $\|\nabla f_s(x, y)\|$ typically contains wide ridges around local maxima. The next step is to thin those ridges. One approach is to use **nonmaxima suppression**.
+
+The nonmaxima suppression iterates through every pixel in the magnitude image:
+
+1. It looks up the pixel's gradient angle (e.g., 22.8°).
+
+2. It rounds this angle to the nearest 45° (e.g., horizontal, vertical, or one of the two diagonals).
+
+3. It compares the pixel's magnitude to the two neighbors that lie along that gradient direction.
+
+4. If the pixel's magnitude is not the local maximum (i.e., if either of its two neighbors is stronger), the pixel is suppressed (set to 0).
+
+5. The result is an image containing only "ridge lines" where the edge strength is highest, creating clean, 1-pixel-thick edges. 
+
+Or in python: 
+```python
+angle_deg = np.rad2deg(angle_rad)
+
+nms_image = np.zeros_like(magnitude, dtype=np.float64)
+
+for i in range(1, self.height - 1):
+    for j in range(1, self.width - 1):
+                
+        M = magnitude[i, j]
+        A_deg = angle_deg[i, j]
+        
+        #---Rounds the angle---
+        
+        #Horizontal
+        
+        if (-22.5 <= A_deg <= 22.5) or (A_deg <= -157.5) or (A_deg >= 157.5):
+            n1 = magnitude[i - 1, j]
+            n2 = magnitude[i + 1, j] 
+        
+        #+45° 
+        elif (22.5 <= A_deg <= 67.5) or (-157.5 <= A_deg <= -112.5):
+            n1 = magnitude[i - 1, j - 1] 
+            n2 = magnitude[i + 1, j + 1] 
+
+        # Vertical 
+        elif (67.5 <= A_deg <= 112.5) or (-112.5 <= A_deg <= -67.5):
+            n1 = magnitude[i, j - 1] # Vizinho Esquerda
+            n2 = magnitude[i, j + 1] # Vizinho Direita
+        
+        #-45° 
+        elif (112.5 <= A_deg <= 157.5) or (-67.5 <= A_deg <= -22.5):
+            n1 = magnitude[i - 1, j + 1] # Vizinho Topo-Direita
+            n2 = magnitude[i + 1, j - 1] # Vizinho Baixo-Esquerda
+        
+        # If M is an local maxima
+        if (M >= n1) and (M >= n2):
+            nms_image[i, j] = M
+        
+        return nms_image
+```
+
+## 3 - Hysteresis Thresholding (Edge Linking)
+This stage decides which are all edges are really edges and which are not. For this, we need two threshold values, minVal and maxVal. Any edges with intensity gradient more than maxVal are sure to be edges and those below minVal are sure to be non-edges, so discarded.
+* (In Marr-Hildreth) If we set the threshold too low, there will still
+be some false edges (called false positives). If the threshold is set too high, then valid edge points will be eliminated (false negatives).
+* Canny’s algorithm attempts to improve on this situation by using hysteresis thresholding 
+1. Find Strong Edges: Any pixel in the NMS image with a magnitude above the High Threshold is immediately marked as a "strong" edge. These are definitively part of the final output.
+
+2. Find Weak Edges: Any pixel with a magnitude between the Low Threshold and the High Threshold is marked as a "weak" edge.
+
+3. Filter & Link: The algorithm performs a connectivity analysis:
+
+4. If a "weak" pixel is connected to a "strong" pixel (directly or via a chain of other weak pixels), it is kept and promoted to a "strong" edge.
+
+5. If a "weak" pixel is isolated (not connected to any strong edge), it is discarded as noise.
+### How the Hysteresis thresholding works
+
+We can visualize the thresholding operation as creating two additional images:
+
+$$
+g_{NH}(x, y) = g_N(x, y) \ge T_H 
+$$
+
+and
+
+$$
+g_{NL}(x, y) = g_N(x, y) \ge T_L 
+$$
+
+Initially, $g_{NH}(x, y)$ and $g_{NL}(x, y)$ are set to 0. After thresholding, $g_{NH}(x, y)$ will usually have fewer nonzero pixels than $g_{NL}(x, y)$, but all the nonzero pixels in $g_{NH}(x, y)$ will be contained in $g_{NL}(x, y)$ because the latter image is formed with a lower threshold. We eliminate from $g_{NL}(x, y)$ all the nonzero pixels from $g_{NH}(x, y)$ by letting
+
+$$
+g_{NL}(x, y) = g_{NL}(x, y) - g_{NH}(x, y) 
+$$
+
+**The nonzero pixels in $g_{NH}(x, y)$ and $g_{NL}(x, y)$ may be viewed as being “strong” and “weak” edge pixels, respectively**. After the thresholding operations, **all strong pixels in $g_{NH}(x, y)$ are assumed to be valid edge pixels, and are so marked immediately.** Depending on the value of $T_H$, the edges in $g_{NH}(x, y)$ typically have gaps. Longer edges are formed using the following procedure:
+
+**(a)** Locate the next unvisited edge pixel, $p$, in $g_{NH}(x, y)$.
+
+**(b)** Mark as valid edge pixels all the weak pixels in $g_{NL}(x, y)$ that are connected to $p$ using, say, 8-connectivity.
+
+**(c)** If all nonzero pixels in $g_{NH}(x, y)$ have been visited go to Step (d). Else, return to Step (a).
+
+**(d)** Set to zero all pixels in $g_{NL}(x, y)$ that were not marked as valid edge pixels.
+
+At the end of this procedure, the final image output by the Canny algorithm is formed by appending to $g_{NH}(x, y)$ all the nonzero pixels from $g_{NL}(x, y)$.
+
+
+Or in python: 
+```python
+edges_image = np.zeros_like(nms_image, dtype=np.uint8)
+
+# 1. Classify strong and weak pixels
+strong_pixels = []
+weak_pixels = {} # Use a dict (hash map) for fast lookup of weak pixels
+
+for i in range(self.height):
+    for j in range(self.width):
+        mag = nms_image[i, j]
+        if mag >= high_thresh:
+            edges_image[i, j] = 255  # Mark strong pixels
+            strong_pixels.append((i, j)) # Add to stack
+        elif mag >= low_thresh:
+            weak_pixels[(i, j)] = True # Mark as weak
+
+# Start stack with all strong pixels
+stack = strong_pixels
+
+while stack:
+    r, c = stack.pop()
+    
+    # Check 8 neighbors
+    for dr in [-1, 0, 1]:
+        for dc in [-1, 0, 1]:
+            if dr == 0 and dc == 0:
+                continue 
+            
+            nr, nc = r + dr, c + dc
+            
+            # Check bounds
+            if 0 <= nr < self.height and 0 <= nc < self.width:
+                # Check if this neighbor is a weak pixel
+                if (nr, nc) in weak_pixels:
+                    # Promote it to an edge
+                    edges_image[nr, nc] = 255
+                    # Remove from weak_pixels to avoid re-processing
+                    del weak_pixels[(nr, nc)]
+                    # Add it to the stack to check its neighbors
+                    stack.append((nr, nc))
+
+# All remaining pixels in edges_image are 0 (suppressed)
+return edges_image
+
+```
+
+## Results of implementation vs OpenCv 
+Original image: 
+![Brain](./assets/brain_tumor.jpeg)
+
+My Canny`s algorithm implementation with params:
+```python
+ canny_image = seg.canny_edge(k_size=5, 
+                                     sigma=1.0, 
+                                     high_threshold=90,
+                                     low_threshold=30
+                                )
+```
+
+![canny](./assets/outputs/canny.png)
+
+OpenCV Canny`s algorithm implementation with params:
+```python 
+canny_image_opencv = cv.Canny(original_image, 100, 40)
+```
+ 
+![canny](./assets/outputs/canny_opencv.png)
+
+* NOTE: It's clear that OpenCV's implementation is significantly faster. However, this implementation provides a clear view of the underlying algorithm and although the OpenCV version is more performant, my implementation correctly models the algorithm and achieves a good response with proper parameter tuning.
 
 # Hough transform
 
