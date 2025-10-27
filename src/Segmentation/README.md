@@ -524,13 +524,13 @@ for i in range(1, self.height - 1):
 
         # Vertical 
         elif (67.5 <= A_deg <= 112.5) or (-112.5 <= A_deg <= -67.5):
-            n1 = magnitude[i, j - 1] # Vizinho Esquerda
-            n2 = magnitude[i, j + 1] # Vizinho Direita
+            n1 = magnitude[i, j - 1] 
+            n2 = magnitude[i, j + 1] 
         
         #-45° 
         elif (112.5 <= A_deg <= 157.5) or (-67.5 <= A_deg <= -22.5):
-            n1 = magnitude[i - 1, j + 1] # Vizinho Topo-Direita
-            n2 = magnitude[i + 1, j - 1] # Vizinho Baixo-Esquerda
+            n1 = magnitude[i - 1, j + 1] 
+            n2 = magnitude[i + 1, j - 1] 
         
         # If M is an local maxima
         if (M >= n1) and (M >= n2):
@@ -656,13 +656,233 @@ canny_image_opencv = cv.Canny(original_image, 100, 40)
 ![canny](./assets/outputs/canny_opencv.png)
 
 * NOTE: It's clear that OpenCV's implementation is significantly faster. However, this implementation provides a clear view of the underlying algorithm and although the OpenCV version is more performant, my implementation correctly models the algorithm and achieves a good response with proper parameter tuning.
-
+---
 # Hough transform
 
+The Hough Transform is a robust feature extraction technique used in digital image processing to detect shapes that can be represented by a parametric equation (e.g., lines, circles, ellipses). Its primary strength is its ability to identify these shapes even when they are partially occluded, broken, or obscured by noise in an image.
+
+**The core principle is to convert a difficult pattern-finding problem in the Image Space into a simpler peak-finding problem in a Parameter Space.**
+
+### Core problem
+After an edge detection step (such as the Canny edge detector), an image is reduced to a set of binary edge pixels (points). The human visual system can easily perceive lines or curves in this "cloud of points," but for a computer, this is challenging. **A brute-force method of checking all combinations of points to find lines is computationally infeasible.** So Hough uses a clever "voting" process based on a duality between the image space and a parameter space: 
+1. Image Space: The standard $(x,y)$ coordinate system of the image. A line is a collection of points. A point is a single $(x,y)$ coordinate.
+
+2. Parameter Space: An abstract space where the axes are the parameters that define the shape. For a line, this could be slope $m$ and y-intercept $c$ from the equation $y=mx+c$.
+
+So a line in image space (defined by one $m$ and one $c$) maps to a single point $(m, c)$ in the parameter space and a point $(x_1, y_1)$ in image space maps to a line in the parameter space. This is because a single point $(x_1, y_1)$ can be part of an infinite family of lines. 
+Rearranging the line equation to $$c = -x_1m + y_1$$ shows that this is a line in the $(m, c)$ plane.
+
+* The $y = mx + c$ parameterization **has a critical flaw: a vertical line.** For a vertical line, the slope $m$ is infinite, which makes the parameter space unbounded and computationally impossible to represent.
+
+Because of that the Hough transform uses the polar representation of line: $$\rho = x \cos(\theta) + y \sin(\theta)$$
+Where: 
+* $\rho$ (rho) is the perpendicular distance from the origin $(0, 0)$ to the line.
+* $\theta$ (theta) is the angle of the perpendicular (normal) vector with respect to the x-axis.
+
+This parameterization is powerful because its parameter space $(\rho, \theta)$ is bounded. $\theta$ can be constrained (e.g., $0^\circ$ to $180^\circ$) and $\rho$ is constrained by the image's diagonal. It can represent any line, including vertical ones.
+
+## Hough algorithm
+
+
+The Hough Transform algorithm is essentially a voting process where each edge pixel "votes" for all possible lines it could belong to.
+1. Initialize the Accumulator : An accumulator array (a 2D histogram) is created to represent the $(\rho, \theta)$ parameter space. The axes are discretized into bins (e.g., 1-degree steps for $\theta$, 1-pixel steps for $\rho$). All bins are initialized to zero. This array acts as the "ballot box"
+
+2. Perform Edge Detection: A binary edge-detected image (e.g., from Canny or Marr-Hildreth) is required as input.
+
+3. Cast Votes: The algorithm iterates through every edge pixel $(x, y)$ in the binary image and for each edge pixel $(x, y)$: The algorithm iterates through all possible values of $\theta$ (e.g., $0^\circ, 1^\circ, 2^\circ, ... 180^\circ$). For each $\theta$, it calculates the corresponding $\rho$ using the equation: $$\rho = x \cos(\theta) + y \sin(\theta)$$
+This $(\rho, \theta)$ pair represents one possible line that passes through the point $(x, y)$. The algorithm "casts a vote" by incrementing the value of the corresponding bin in the accumulator array: 
+``` python 
+accumulator[rho, theta] += 1.
+```
+Geometrically, each edge point $(x, y)$ maps to a sinusoidal curve in the $(\rho, \theta)$ space.
+
+4. Find the Peaks: After all edge pixels have voted, the algorithm analyzes the accumulator array. Collinear points in the image space (which all lie on the same line, $\rho_{line}, \theta_{line}$) will produce sinusoids that all intersect at a single point $(\rho_{line}, \theta_{line})$ in the parameter space. This intersection results in a "peak" (a bin with a high vote count) in the accumulator. By setting a threshold (a minimum number of votes), the algorithm can find these peaks. Each peak above the threshold corresponds to a detected line in the original image.
+
+### The Hough algorithm can be extended to other shapes 
+This same concept can be extended to any shape defined by parameters.
+* Shape: Circle
+* Equation: $(x - a)^2 + (y - b)^2 = r^2$
+* Parameters: $(a, b, r)$ — the center coordinates $(a, b)$ and the radius $r$.
+* Accumulator: This requires a 3-dimensional accumulator array. 
+```python
+accumulator[a, b, r]
+```
+For each edge pixel $(x, y)$, it will "vote" for all 
+possible circles (all $a, b, r$) that it could lie on. 
+This is computationally more intensive than line detection but follows the same core principle of mapping from image space to a parameter voting space.
+
+## Results using openCV
+Original image: 
+
+![street road](./assets/street.jpg)
+
+Canny image obtained with openCV
+
+![canny for hough](./assets/outputs/canny_for_hough.png)
+
+Hough lines
+
+![Hough lines](./assets/outputs/hough_transform.png)
+
+---
+# Similiarity Based aproach
+
+These Methods/Algorithms are based on similarities instead of discontinuities: this means we will **discuss techniques for partitioning images directly into regions based on intensity values and/or properties of these values.**
+
 # Thresholding with Otsu method
+Otsu's method is a fully automatic, data-driven algorithm **used to find the optimal global threshold for a grayscale image.**
+
+Its goal is to take a grayscale image and convert it into a binary (black and white) image. The main problem it solves is answering the question: "How do you pick the best threshold value t without manual tuning or guesswork?"
+
+## Maximizing Separability
+
+Otsu's method treats the image's pixel intensities as a 1D clustering problem. It makes a fundamental assumption: the image is composed of two distinct classes (clusters) of pixels:
+
+Class 0 (Background): A cluster of darker pixels.
+
+Class 1 (Foreground): A cluster of lighter pixels.
+
+The "optimal" threshold t is the one that best separates these two clusters.
+
+Otsu defines "best" in a statistical way: The best threshold t is the one that maximizes the "between-class variance" ($\sigma_B^2$). In simple terms, it's the split point that pushes the average intensity of the background group as far away as possible from the average intensity of the foreground group.
+
+## The Algorithm (Step-by-Step)
+
+Instead of processing the M x N image, Otsu's method is fast because it only processes the 256-bin image histogram.
+
+1. Compute Histogram: Generate the 256-bin histogram of the entire image.
+
+2. Normalize Histogram: Divide the count in each bin by the total number of pixels. This gives you a probability distribution, $p_i$, where $p_i$ is the probability that a randomly chosen pixel has intensity i.
+
+3. Iterate and Evaluate: Loop through all possible thresholds t from 0 to 255.
+
+4.  For each t, split the histogram into two classes:
+
+    * Class 0 (Background): Pixels with intensity $[0, ..., t]$
+    * Class 1 (Foreground): Pixels with intensity $[t+1, ..., 255]$
+
+5. Calculate Key Metrics for this split t:
+
+    * Weights (Probabilities): The probability a random pixel will fall into each class.
+
+    $w_0(t) = \sum_{i=0}^{t} p_i$
+
+    $w_1(t) = \sum_{i=t+1}^{255} p_i$
+
+    * Means: The average intensity value for each class.
+
+    $\mu_0(t) = \frac{\sum_{i=0}^{t} i \cdot p_i}{w_0(t)}$
+
+    $\mu_1(t) = \frac{\sum_{i=t+1}^{255} i \cdot p_i}{w_1(t)}$
+
+6. Calculate the Objective Function:
+    * Compute the Between-Class Variance ($\sigma_B^2$) for this t. This is the value you want to maximize.
+
+    $$\sigma_B^2(t) = w_0(t) \cdot w_1(t) \cdot (\mu_1(t) - \mu_0(t))^2$$
+
+This formula is high when the two classes are "balanced" (the $w_0 \cdot w_1$ term) and their means are very far apart (the $(\mu_1 - \mu_0)^2$ term).
+
+7. Find the Maximum:
+    * The t that produces the maximum $\sigma_B^2(t)$ value is the final, optimal Otsu threshold.
+
+### Assumptions and Limitations
+
+Otsu's method is powerful, but **it fails when its core assumption is violated** that is:
+* The image's histogram is bimodal (it has two clear, distinct peaks, one for background and one for foreground).
+
+With that being said we can stablish that Otsu's method will perform poorly when:
+
+* The Histogram is Unimodal: If the image is all one thing (e.g., a close-up of a face, a foggy landscape), the histogram has only one peak. Otsu will still find a threshold, but it will be meaningless and likely cut the single peak in a strange place.
+
+* Classes are Highly Unbalanced: If your foreground object is tiny (e.g., a few white stars in a black sky), its "peak" in the histogram is too small to be statistically significant. The algorithm will likely fail to find a good separation.
+
+* Non-Uniform Illumination: This is the most common failure case. Otsu finds one global threshold for the entire image. If the image has a bright light in one corner and a deep shadow in another, no single threshold can work for both areas.
+
+Solution: In this case, you must use an Adaptive Threshold, which calculates different thresholds for different local regions of the image.
+
+## Results
+The Otsu method choose the best value (between 0 and 255) that correctly separates all the pixels in the image in two classes:  0 for background or 1 for foreground. 
+* In the coins image above we can see that the pixels that are more close to gray or darker are set as background: 
+
+![coins](./assets/coins23.png)
+
+![Otsu coin](./assets/outputs/otsu_coin.png)
+
+```bash
+Otsu's optimal threshold: 154
+```
+* On the other image, we can see that the image get correctfully segmented between the elements and the background
+
+![Elements](./assets/elements.png)
+![Hough lines](./assets/outputs/otsu_elements.png)
+```bash
+Otsu's optimal threshold: 189
+```
+
+---
+
+# Watershed
+It is a region-based (or region-growing) algorithm, meaning it segments an image by grouping pixels into regions or "basins."
+
+**Its primary strength and most common use case is to separate touching or overlapping objects in an image (like coins touching)** . This is a task that simple global thresholding (like Otsu's method) cannot accomplish, as thresholding will merge all "foreground" objects into a single, connected component.
+
+The algorithm is most formally and intuitively understood by visualizing the grayscale image as a 3D topographic landscape:
+
+* Pixel Intensity corresponds to Elevation.
+
+* Dark Pixels (Local Minima) represent Catchment Basins or valleys.
+
+* Bright Pixels (Local Maxima) represent Ridges or "watershed lines" that separate the basins.
+
+Watershed is like "flooding" all valleys at the same time upwards until they meet, specifically to find the "ridges" (hills) that separate them.
+
+## Topographic analogy
+TThe algorithm is most formally and intuitively understood by visualizing a grayscale image, $f(x, y)$, as a 3D topographic landscape:
+
+* Spatial Coordinates $(x, y)$ represent the East-West and North-South positions.
+
+* Intensity $f(x, y)$ represents the Elevation at that position.
+
+In this landscape:
+
+1. Local Minima (dark pixel regions) are the "valleys" or catchment basins. These are the points from which water, if it fell on the surrounding region, would collect.
+
+2. Local Maxima (bright pixel regions) are the "peaks" or "ridges" that separate the basins.
+
+3. The Watershed Lines (or "dams") are the ridges that divide one catchment basin from another.
+
+## The Algorithm 
+The formal algorithm is best described by simulating the immersion of this topographic landscape into a large body of water.
+
+1. Identify Minima: The algorithm begins by identifying all local minima (catchment basins) in the image $f(x, y)$.
+
+2. Simulate Flooding: Imagine "holes" are punched in each local minimum. The entire landscape is then slowly immersed in water.
+
+3. Basins Grow: As the landscape is submerged, water enters through the holes and begins to fill the catchment basins. The water from each minimum is given a unique "color" or label. As the water level rises (corresponding to processing pixels from the lowest intensity $h_{min}$ to the highest $h_{max}$), the "pools" from each basin expand.
+
+4. Construct Dams (Watershed Lines): At some water level $h$, the water from two different basins (e.g., basin $i$ and basin $j$) will be about to merge. This "short-circuit" is prevented. A "dam" (a watershed line) is built at every location where this merging would occur. These dams are one pixel wide and are assigned a special value ( 0 or -1).
+
+5. Final Segmentation: This process continues until the entire "landscape" (image) is flooded, from $h_{min}$ to $h_{max}$. The resulting "dams" form a set of continuous, closed boundaries. These boundaries partition the image into its constituent catchment basins (the segmented regions).
+
+## Problem with Over-segmentation
+
+if applied naively to a raw digital image, the watershed algorithm has one critical, well-documented flaw: over-segmentation.
+
+* Caused by Digital images:  even after smoothing, contain a high degree of noise and minor texture variations. These variations create a massive number of spurious (false) local minima that do not correspond to the "true" objects of interest. **This causes the algorithm to be extremely sensitive and will treat every one of these spurious minima as a separate catchment basin. And because of that it produces an image with thousands of tiny, fragmented, and meaningless segmented regions, rendering the output useless.**
+
+* Solution: To solve the over-segmentation problem, the Marker-Controlled Watershed is the standard, practical implementation. **The core idea is to modify the topographic landscape itself before flooding, such that the only local minima present are the ones we explicitly define.** These user-defined minima are called markers or "seeds."
 
 
+This method is almost always run on the gradient magnitude image $g(x, y) = |\nabla f(x, y)|$ (e.g., from a Sobel operator). In this gradient image, the "ridges" (high values) correspond to the object edges, and the "valleys" (low values) represent the flat, homogeneous interiors of the objects.
 
+## Results
+Using Otsu`s method
+
+![OTSU](./assets/outputs/otsu_water_coins.png)
+
+Drawing using Watershed 
+
+![Watershed](./assets/outputs/watershed_coins.png)
 
 
 
